@@ -25,6 +25,7 @@ COPY --from=deps /usr/src/app/node_modules ./node_modules
 COPY . .
 
 # Aplicar migraciones
+ENV DATABASE_URL="file:./dev.db"
 RUN npx prisma migrate deploy
 
 # testing antes del build
