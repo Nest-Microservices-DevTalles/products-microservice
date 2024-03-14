@@ -1,0 +1,62 @@
+# imagen base node + linux alpine, para instalar las dependencias
+FROM node:21-alpine3.19 as deps
+
+# Directorio de trabajo
+WORKDIR /usr/src/app
+
+# Copiar los archivos package.json y package-lock.json
+COPY package.json ./
+COPY package-lock.json ./
+
+# Instalar las dependencias
+RUN npm install
+
+
+# Imagen base node + linux alpine, para construir la aplicación
+FROM node:21-alpine3.19 as build
+
+WORKDIR /usr/src/app
+
+# Copiar los módulos de node de la imagen deps
+COPY --from=deps /usr/src/app/node_modules ./node_modules
+
+
+# Copiar el resto de los archivos
+COPY . .
+
+# Aplicar migraciones
+RUN npx prisma migrate deploy
+
+# testing antes del build
+# RUN npm run test
+RUN npm run build
+
+# instalar sólo producción y limpiar la caché
+RUN npm ci -f --only=production && npm cache clean --force
+
+
+
+
+FROM node:21-alpine3.19 as prod
+
+WORKDIR /usr/src/app
+
+# Copiar los módulos de node de la imagen deps
+COPY --from=build /usr/src/app/node_modules ./node_modules
+
+# Copiar la carpeta dist
+COPY --from=build /usr/src/app/dist ./dist
+COPY --from=build /usr/src/app/prisma ./prisma
+
+ENV NODE_ENV=production
+
+# Cambiar de usuario para que tenga menor privilegio
+USER node 
+
+EXPOSE 3000
+
+# Start the server using the production build 
+CMD ["node", "dist/main.js"]
+
+
+# docker build -t products-ms . -f dockerfile.prod
