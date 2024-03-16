@@ -27,7 +27,6 @@ RUN npm run build
 
 RUN npm ci -f --only=production && npm cache clean --force
 
-RUN npx prisma migrate deploy
 RUN npx prisma generate
 
 
